@@ -11,6 +11,12 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 
 public class Intake {
+    private static final double CURRENT_FILTER_ALPHA = 0.2;
+    private static final double SPIKE_HOLD_MS_MOTOR_1 = 500.0;
+    private static final double SPIKE_HOLD_MS_MOTOR_2 = 250.0;
+    private static final double RECOVERY_HOLD_MS = 400.0;
+    private static final double RECOVERY_THRESHOLD_SCALE = 0.7;
+
     private final DcMotorEx intakeMotor1;
     private final DcMotorEx intakeMotor2;
     private final Servo gateServo;
@@ -21,12 +27,16 @@ public class Intake {
     private final ElapsedTime startupTimer = new ElapsedTime();
     private final ElapsedTime spikeTimer1 = new ElapsedTime();
     private final ElapsedTime spikeTimer2 = new ElapsedTime();
+    private final ElapsedTime recoverTimer1 = new ElapsedTime();
+    private final ElapsedTime recoverTimer2 = new ElapsedTime();
 
     private double pow1 = 0.0, pow2 = 0.0;
     private double servoPos;
 
     private double current = 0.0;
     private double finalBallCurrent = 0.0;
+    private double filteredCurrent = 0.0;
+    private double filteredFinalBallCurrent = 0.0;
 
     private boolean spiked1 = false;
     private boolean spiked2 = false;
@@ -66,6 +76,9 @@ public class Intake {
     public void read() {
         current = intakeMotor2.getCurrent(CurrentUnit.MILLIAMPS);
         finalBallCurrent = intakeMotor1.getCurrent(CurrentUnit.MILLIAMPS);
+
+        filteredCurrent += CURRENT_FILTER_ALPHA * (current - filteredCurrent);
+        filteredFinalBallCurrent += CURRENT_FILTER_ALPHA * (finalBallCurrent - filteredFinalBallCurrent);
     }
 
     public void update(double x, double y, boolean ready, boolean pointingCorrectly) {
@@ -80,6 +93,8 @@ public class Intake {
             spiked2 = false;
             inSpikeWindow1 = false;
             inSpikeWindow2 = false;
+            recoverTimer1.reset();
+            recoverTimer2.reset();
             wasIntakeActive = false;
         }
 
@@ -142,6 +157,10 @@ public class Intake {
         telemetry.addData("turnPlease", turnPlease);
         telemetry.addData("spiked1", spiked1);
         telemetry.addData("spiked2", spiked2);
+        telemetry.addData("currentRaw", current);
+        telemetry.addData("currentFiltered", filteredCurrent);
+        telemetry.addData("finalCurrentRaw", finalBallCurrent);
+        telemetry.addData("finalCurrentFiltered", filteredFinalBallCurrent);
 
         TelemetryPacket packet = new TelemetryPacket();
         packet.put("pow1", pow1);
@@ -154,6 +173,10 @@ public class Intake {
         packet.put("turnPlease", turnPlease);
         packet.put("spiked1", spiked1);
         packet.put("spiked2", spiked2);
+        packet.put("currentRaw", current);
+        packet.put("currentFiltered", filteredCurrent);
+        packet.put("finalCurrentRaw", finalBallCurrent);
+        packet.put("finalCurrentFiltered", filteredFinalBallCurrent);
         dashboard.sendTelemetryPacket(packet);
     }
 
@@ -162,35 +185,53 @@ public class Intake {
             startupTimer.reset();
             inSpikeWindow1 = false;
             inSpikeWindow2 = false;
+            recoverTimer1.reset();
+            recoverTimer2.reset();
             wasIntakeActive = true;
         }
 
         if (startupTimer.milliseconds() <= 500) return;
 
         if (!spiked1) {
-            if (finalBallCurrent > finalBallCurrentSpike) {
+            if (filteredFinalBallCurrent > finalBallCurrentSpike) {
                 if (!inSpikeWindow1) {
                     spikeTimer1.reset();
                     inSpikeWindow1 = true;
-                } else if (spikeTimer1.milliseconds() > 500) {
+                } else if (spikeTimer1.milliseconds() > SPIKE_HOLD_MS_MOTOR_1) {
                     spiked1 = true;
+                    recoverTimer1.reset();
                 }
             } else {
                 inSpikeWindow1 = false;
             }
+        } else if (filteredFinalBallCurrent < finalBallCurrentSpike * RECOVERY_THRESHOLD_SCALE) {
+            if (recoverTimer1.milliseconds() > RECOVERY_HOLD_MS) {
+                spiked1 = false;
+                inSpikeWindow1 = false;
+            }
+        } else {
+            recoverTimer1.reset();
         }
 
         if (!spiked2) {
-            if (current > currentSpike) {
+            if (filteredCurrent > currentSpike) {
                 if (!inSpikeWindow2) {
                     spikeTimer2.reset();
                     inSpikeWindow2 = true;
-                } else if (spikeTimer2.milliseconds() > 250) {
+                } else if (spikeTimer2.milliseconds() > SPIKE_HOLD_MS_MOTOR_2) {
                     spiked2 = true;
+                    recoverTimer2.reset();
                 }
             } else {
                 inSpikeWindow2 = false;
             }
+        } else if (filteredCurrent < currentSpike * RECOVERY_THRESHOLD_SCALE) {
+            if (recoverTimer2.milliseconds() > RECOVERY_HOLD_MS) {
+                spiked2 = false;
+                inSpikeWindow2 = false;
+            }
+        } else {
+            recoverTimer2.reset();
         }
     }
 
