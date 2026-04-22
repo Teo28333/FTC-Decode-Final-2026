@@ -57,6 +57,32 @@ public class RED extends OpMode {
         applySubsystemCommands();
         runSubsystemLoop();
         telemetry.update();
+        if (intake.turnPlease()) {
+            turn = gamepad1.right_stick_x + shooter.getChassisTurnAssist();
+        } else {
+            turn = gamepad1.right_stick_x;
+        }
+
+        follower.setTeleOpDrive(
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -turn,
+                false,
+                Math.toRadians(0)
+        );
+
+        shooter.offsetLess(gamepad1.dpad_left);
+        shooter.offsetMore(gamepad1.dpad_right);
+        shooter.resetOffset(gamepad1.dpad_down);
+
+        intake.activateIntake(gamepad1.right_bumper);
+        intake.activateTransfer(gamepad1.left_bumper);
+        intake.activateOuttake(gamepad1.square);
+
+        lift.activateLift(gamepad2.right_bumper);
+        lift.activatePto(gamepad2.left_bumper);
+
+        SSLoop();
     }
 
     private void runSubsystemLoop() {
