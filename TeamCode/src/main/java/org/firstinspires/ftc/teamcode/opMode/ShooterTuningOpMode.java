@@ -63,6 +63,25 @@ public class ShooterTuningOpMode extends OpMode {
         applySubsystemCommands();
         runSubsystemLoop();
         telemetry.update();
+        follower.setTeleOpDrive(
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -turn,
+                false,
+                Math.toRadians(0));
+
+        shooter.offsetLess(gamepad1.dpad_left);
+        shooter.offsetMore(gamepad1.dpad_right);
+        shooter.resetOffset(gamepad1.dpad_down);
+
+        intake.activateIntake(gamepad1.right_bumper);
+        intake.activateTransfer(gamepad1.left_bumper);
+        intake.activateOuttake(gamepad1.square);
+
+        lift.activateLift(gamepad2.right_bumper);
+        lift.activatePto(gamepad2.left_bumper);
+
+        SSLoop();
     }
 
     private void runSubsystemLoop() {
@@ -109,7 +128,7 @@ public class ShooterTuningOpMode extends OpMode {
         double manualTurn = applyDeadband(gamepad1.right_stick_x) * speedScale;
 
         double turnAssist = 0.0;
-        if (intake.turnPlease() && !gamepad1.a) {
+        if (intake.turnPlease() && !gamepad1.cross) {
             turnAssist = shooter.getChassisTurnAssist() * AIM_ASSIST_SCALE;
         }
 
@@ -129,10 +148,10 @@ public class ShooterTuningOpMode extends OpMode {
 
         intake.activateIntake(gamepad1.right_bumper);
         intake.activateTransfer(gamepad1.left_bumper);
-        intake.activateOuttake(gamepad1.x);
+        intake.activateOuttake(gamepad1.square);
 
-        lift.activateLift(gamepad1.y);
-        lift.activatePto(gamepad1.b);
+        lift.activateLift(gamepad1.triangle);
+        lift.activatePto(gamepad1.circle);
     }
 
     private double applyDeadband(double value) {
