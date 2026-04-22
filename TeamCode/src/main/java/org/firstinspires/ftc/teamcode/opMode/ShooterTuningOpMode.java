@@ -20,14 +20,14 @@ import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 
 @TeleOp
 public class ShooterTuningOpMode extends OpMode {
+    private static final double STICK_DEADBAND = 0.05;
+    private static final double SLOW_MODE_SCALE = 0.45;
 
     private Follower follower;
     private Shooter shooter;
     private Intake intake;
     private Lift lift;
     private Limelight3A ll3a;
-
-    private double turn = 0.0;
 
     private FtcDashboard dashboard;   // ← added for FTC Dashboard
 
@@ -57,38 +57,26 @@ public class ShooterTuningOpMode extends OpMode {
 
     @Override
     public void loop() {
-
-        if (intake.turnPlease()) {
-            turn = gamepad1.right_stick_x + shooter.getChassisTurnAssist();
-        } else {
-            turn = gamepad1.right_stick_x;
-        }
-
         shooter.isInTuningMode(true);
-        follower.setTeleOpDrive(
-                -gamepad1.left_stick_y,
-                -gamepad1.left_stick_x,
-                -turn,
-                false,
-                Math.toRadians(0));
-
-        shooter.offsetLess(gamepad1.dpad_left);
-        shooter.offsetMore(gamepad1.dpad_right);
-        shooter.resetOffset(gamepad1.dpad_down);
-
-        intake.activateIntake(gamepad1.right_bumper);
-        intake.activateTransfer(gamepad1.left_bumper);
-        intake.activateOuttake(gamepad1.square);
-
-        SSLoop();
+        applyDriveCommand();
+        applySubsystemCommands();
+        runSubsystemLoop();
+        telemetry.update();
     }
 
-    public void SSLoop() {
-        telemetry.update();
+    private void runSubsystemLoop() {
         follower.update();
 
         shooter.read();
-        shooter.update(follower.getPose().getX(), follower.getPose().getY(), follower.getHeading(), redGoalX, goalY, follower.getVelocity(), 0);
+        shooter.update(
+                follower.getPose().getX(),
+                follower.getPose().getY(),
+                follower.getHeading(),
+                redGoalX,
+                goalY,
+                follower.getVelocity(),
+                follower.getAngularVelocity()
+        );
         shooter.write();
 
         intake.read();
@@ -110,6 +98,39 @@ public class ShooterTuningOpMode extends OpMode {
                 follower.getVelocity().getYComponent()));
         packet.put("Shooter Ready", shooter.isReady());
         dashboard.sendTelemetryPacket(packet);
+    }
+
+    private void applyDriveCommand() {
+        double speedScale = gamepad1.right_trigger > 0.2 ? SLOW_MODE_SCALE : 1.0;
+
+        double driveY = applyDeadband(-gamepad1.left_stick_y) * speedScale;
+        double driveX = applyDeadband(-gamepad1.left_stick_x) * speedScale;
+        double manualTurn = applyDeadband(gamepad1.right_stick_x) * speedScale;
+
+        follower.setTeleOpDrive(
+                driveY,
+                driveX,
+                -manualTurn,
+                false,
+                Math.toRadians(0)
+        );
+    }
+
+    private void applySubsystemCommands() {
+        shooter.offsetLess(gamepad1.dpad_left);
+        shooter.offsetMore(gamepad1.dpad_right);
+        shooter.resetOffset(gamepad1.dpad_down);
+
+        intake.activateIntake(gamepad1.right_bumper);
+        intake.activateTransfer(gamepad1.left_bumper);
+        intake.activateOuttake(gamepad1.x);
+
+        lift.activateLift(gamepad1.y);
+        lift.activatePto(gamepad1.b);
+    }
+
+    private double applyDeadband(double value) {
+        return Math.abs(value) > STICK_DEADBAND ? value : 0.0;
     }
 
     private void relocalize() {
