@@ -49,7 +49,6 @@ public class Intake {
     private boolean activateAutonTransfer = false;
     private boolean activateOuttake = false;
     private boolean activateTransfer = false;
-    private boolean turnPlease = false;
 
     public Intake(HardwareMap hw, Telemetry telemetry) {
         this.telemetry = telemetry;
@@ -84,7 +83,6 @@ public class Intake {
     public void update(double x, double y, boolean ready, boolean pointingCorrectly) {
         boolean isInZone = isInShootingZone(x, y);
 
-        turnPlease = false;
         pow1 = 0;
         pow2 = 0;
 
@@ -119,7 +117,6 @@ public class Intake {
                 pow1 = 0.0;
                 pow2 = 0.0;
             } else if (!pointingCorrectly) {
-                turnPlease = true;
                 pow1 = 0.0;
                 pow2 = 0.0;
             } else {
@@ -154,7 +151,6 @@ public class Intake {
         telemetry.addData("gate", servoPos);
         telemetry.addData("ready", ready);
         telemetry.addData("pointingCorrectly", pointingCorrectly);
-        telemetry.addData("turnPlease", turnPlease);
         telemetry.addData("spiked1", spiked1);
         telemetry.addData("spiked2", spiked2);
         telemetry.addData("currentRaw", current);
@@ -170,7 +166,6 @@ public class Intake {
         packet.put("finalCurrent", finalBallCurrent);
         packet.put("ready", ready);
         packet.put("pointingCorrectly", pointingCorrectly);
-        packet.put("turnPlease", turnPlease);
         packet.put("spiked1", spiked1);
         packet.put("spiked2", spiked2);
         packet.put("currentRaw", current);
@@ -256,10 +251,6 @@ public class Intake {
     public static boolean isInFrontZone(double x, double y) {
         double d = radius * Math.sqrt(2);
         return y >= -x + 144 - d && y >= x - d;
-    }
-
-    public boolean turnPlease() {
-        return turnPlease;
     }
 
     public void write() {
