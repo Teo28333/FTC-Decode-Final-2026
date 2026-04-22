@@ -52,8 +52,6 @@ public class RED extends OpMode {
 
     @Override
     public void loop() {
-        SSLoop();
-
         if (intake.turnPlease()) {
             turn = gamepad1.right_stick_x + shooter.getChassisTurnAssist();
         } else {
@@ -75,6 +73,11 @@ public class RED extends OpMode {
         intake.activateIntake(gamepad1.right_bumper);
         intake.activateTransfer(gamepad1.left_bumper);
         intake.activateOuttake(gamepad1.square);
+
+        lift.activateLift(gamepad2.right_bumper);
+        lift.activatePto(gamepad2.left_bumper);
+
+        SSLoop();
     }
 
     public void SSLoop() {

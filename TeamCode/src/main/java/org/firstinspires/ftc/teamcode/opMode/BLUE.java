@@ -71,6 +71,9 @@ public class BLUE extends OpMode {
         intake.activateTransfer(gamepad1.left_bumper);
         intake.activateOuttake(gamepad1.square);
 
+        lift.activateLift(gamepad2.right_bumper);
+        lift.activatePto(gamepad2.left_bumper);
+
         SSLoop();
     }
 
