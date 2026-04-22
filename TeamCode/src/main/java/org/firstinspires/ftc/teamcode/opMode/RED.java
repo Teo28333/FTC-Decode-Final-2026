@@ -18,14 +18,15 @@ import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 
 @TeleOp
 public class RED extends OpMode {
+    private static final double STICK_DEADBAND = 0.05;
+    private static final double SLOW_MODE_SCALE = 0.45;
+    private static final double AIM_ASSIST_SCALE = 0.8;
 
     private Follower follower;
     private Shooter shooter;
     private Intake intake;
     private Lift lift;
     private Limelight3A ll3a;
-
-    private double turn = 0.0;
 
     @Override
     public void init() {
@@ -52,6 +53,10 @@ public class RED extends OpMode {
 
     @Override
     public void loop() {
+        applyDriveCommand();
+        applySubsystemCommands();
+        runSubsystemLoop();
+        telemetry.update();
         if (intake.turnPlease()) {
             turn = gamepad1.right_stick_x + shooter.getChassisTurnAssist();
         } else {
@@ -80,7 +85,7 @@ public class RED extends OpMode {
         SSLoop();
     }
 
-    public void SSLoop() {
+    private void runSubsystemLoop() {
         follower.update();
 
         shooter.read();
@@ -91,7 +96,7 @@ public class RED extends OpMode {
                 redGoalX,
                 goalY,
                 follower.getVelocity(),
-                0 // replace with real angular velocity if available
+                follower.getAngularVelocity()
         );
         shooter.write();
 
@@ -107,6 +112,44 @@ public class RED extends OpMode {
         lift.read();
         lift.update();
         lift.write();
+    }
+
+    private void applyDriveCommand() {
+        double speedScale = gamepad1.right_trigger > 0.2 ? SLOW_MODE_SCALE : 1.0;
+
+        double driveY = applyDeadband(-gamepad1.left_stick_y) * speedScale;
+        double driveX = applyDeadband(-gamepad1.left_stick_x) * speedScale;
+        double manualTurn = applyDeadband(gamepad1.right_stick_x) * speedScale;
+
+        double turnAssist = 0.0;
+        if (intake.turnPlease() && !gamepad1.cross) {
+            turnAssist = shooter.getChassisTurnAssist() * AIM_ASSIST_SCALE;
+        }
+
+        follower.setTeleOpDrive(
+                driveY,
+                driveX,
+                -(manualTurn + turnAssist),
+                false,
+                Math.toRadians(0)
+        );
+    }
+
+    private void applySubsystemCommands() {
+        shooter.offsetLess(gamepad1.dpad_left);
+        shooter.offsetMore(gamepad1.dpad_right);
+        shooter.resetOffset(gamepad1.dpad_down);
+
+        intake.activateIntake(gamepad1.right_bumper);
+        intake.activateTransfer(gamepad1.left_bumper);
+        intake.activateOuttake(gamepad1.square);
+
+        lift.activateLift(gamepad1.triangle);
+        lift.activatePto(gamepad1.circle);
+    }
+
+    private double applyDeadband(double value) {
+        return Math.abs(value) > STICK_DEADBAND ? value : 0.0;
     }
 
     private void relocalize() {
