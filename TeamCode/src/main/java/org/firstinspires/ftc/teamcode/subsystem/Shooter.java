@@ -38,8 +38,11 @@ public class Shooter {
     private static final double MAX_CHASSIS_TURN_ASSIST = 0.35;
 
     private static final double AIM_TOLERANCE_DEG = 2.0;
+    private static final double RPM_FILTER_ALPHA = 0.25;
+    private static final double MAX_MANUAL_OFFSET_DEG = 20.0;
 
     private double rpm = 0.0;
+    private double filteredRpm = 0.0;
     private double targetRPM = 0.0;
     private double hoodPos = 0.0;
     private double motorPow = 0.0;
@@ -56,6 +59,9 @@ public class Shooter {
     private boolean offsetLess = false;
     private boolean resetOffset = false;
     private boolean isInTuningMode = false;
+    private boolean prevOffsetMore = false;
+    private boolean prevOffsetLess = false;
+    private boolean prevResetOffset = false;
 
     public Shooter(HardwareMap hw, Telemetry telemetry) {
         this.telemetry = telemetry;
@@ -92,8 +98,10 @@ public class Shooter {
 
     public void read() {
         rpm = (motor1.getVelocity() / 28.0) * 60.0;
+        filteredRpm += RPM_FILTER_ALPHA * (rpm - filteredRpm);
 
         telemetry.addData("RPM", rpm);
+        telemetry.addData("Filtered RPM", filteredRpm);
         telemetry.addData("Target RPM", targetRPM);
     }
 
@@ -130,11 +138,22 @@ public class Shooter {
         double futureX = x + vx * t;
         double futureY = y + vy * t;
 
+        Vector2d rotatedOffsetNow = new Vector2d(xOffset, yOffset)
+                .rotateBy(heading);
+
+        // Add tangential velocity from chassis rotation: v = omega x r
+        // For planar motion around z-axis, v_tan = (-omega * ry, omega * rx)
+        double rotationalVx = -omega * rotatedOffsetNow.getY();
+        double rotationalVy = omega * rotatedOffsetNow.getX();
+
+        double shooterFutureX = futureX + rotationalVx * t;
+        double shooterFutureY = futureY + rotationalVy * t;
+
         Vector2d futureOffset = new Vector2d(xOffset, yOffset)
                 .rotateBy(heading + omega * t);
 
-        double shooterFutureX = futureX + futureOffset.getX();
-        double shooterFutureY = futureY + futureOffset.getY();
+        shooterFutureX += futureOffset.getX();
+        shooterFutureY += futureOffset.getY();
 
         double dx = goalX - shooterFutureX;
         double dy = goalY - shooterFutureY;
@@ -148,13 +167,23 @@ public class Shooter {
 
         rawAngle = normalizeDeg(rawAngle);
 
-        if (resetOffset) {
+        boolean resetOffsetPressed = resetOffset && !prevResetOffset;
+        boolean offsetLessPressed = offsetLess && !prevOffsetLess;
+        boolean offsetMorePressed = offsetMore && !prevOffsetMore;
+
+        if (resetOffsetPressed) {
             turretOffset = 0.0;
-        } else if (offsetLess) {
+        } else if (offsetLessPressed) {
             turretOffset -= 1.0;
-        } else if (offsetMore) {
+        } else if (offsetMorePressed) {
             turretOffset += 1.0;
         }
+
+        turretOffset = Range.clip(turretOffset, -MAX_MANUAL_OFFSET_DEG, MAX_MANUAL_OFFSET_DEG);
+
+        prevResetOffset = resetOffset;
+        prevOffsetLess = offsetLess;
+        prevOffsetMore = offsetMore;
 
         desiredTurretAngleDeg = normalizeDeg(rawAngle + turretOffset);
 
@@ -204,7 +233,12 @@ public class Shooter {
             hoodPos = shooterEquation.getHoodPos(distance);
         }
 
-        motorPow = speedController.calculate(targetRPM, rpm);
+        if (targetRPM <= 0.0) {
+            speedController.reset();
+            motorPow = 0.0;
+        } else {
+            motorPow = speedController.calculate(targetRPM, filteredRpm);
+        }
 
         telemetry.addData("Turret Angle", finalTurretAngle);
         telemetry.addData("Desired Turret Angle", desiredTurretAngleDeg);
@@ -219,6 +253,7 @@ public class Shooter {
         packet.put("ChassisTurnAssist", chassisTurnAssist);
         packet.put("Distance", distance);
         packet.put("rpm", rpm);
+        packet.put("filtered rpm", filteredRpm);
         packet.put("target rpm", targetRPM);
 
         dashboard.sendTelemetryPacket(packet);

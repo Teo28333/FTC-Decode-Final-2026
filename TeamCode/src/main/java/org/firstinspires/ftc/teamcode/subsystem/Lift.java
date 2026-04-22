@@ -1,13 +1,21 @@
 package org.firstinspires.ftc.teamcode.subsystem;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
 public class Lift {
-    private DcMotorEx bR, bL, fR, fL;
-    private Servo ptoServo;
+    private static final double PTO_ENGAGED_POS = 0.5;
+    private static final double PTO_DISENGAGED_POS = 0.0;
+    private static final double LIFT_POWER = 0.875;
+
+    private final DcMotorEx bR;
+    private final DcMotorEx bL;
+    private final DcMotorEx fR;
+    private final DcMotorEx fL;
+    private final Servo ptoServo;
 
     private double backPow;
     private double frontPow;
@@ -26,6 +34,11 @@ public class Lift {
         fR.setDirection(DcMotorSimple.Direction.REVERSE);
         bL.setDirection(DcMotorSimple.Direction.FORWARD);
         bR.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        fL.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        fR.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bL.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        bR.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
     public void activateLift(boolean isTrue) {
@@ -41,14 +54,14 @@ public class Lift {
     }
 
     public void update() {
-
-        if (ptoActivate) {
-            ptoServo.setPosition(0.5);
-        } else ptoServo.setPosition(0);
+        ptoServo.setPosition(ptoActivate ? PTO_ENGAGED_POS : PTO_DISENGAGED_POS);
 
         if (liftActivate) {
-            backPow = 0.875;
-            frontPow = -875;
+            backPow = LIFT_POWER;
+            frontPow = -LIFT_POWER;
+        } else {
+            backPow = 0.0;
+            frontPow = 0.0;
         }
     }
 
