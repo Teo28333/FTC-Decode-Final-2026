@@ -20,6 +20,7 @@ import org.firstinspires.ftc.teamcode.subsystem.Shooter;
 public class RED extends OpMode {
     private static final double STICK_DEADBAND = 0.05;
     private static final double SLOW_MODE_SCALE = 0.45;
+    private static final double AIM_ASSIST_SCALE = 0.8;
 
     private Follower follower;
     private Shooter shooter;
@@ -93,11 +94,12 @@ public class RED extends OpMode {
         double driveY = applyDeadband(-gamepad1.left_stick_y) * speedScale;
         double driveX = applyDeadband(-gamepad1.left_stick_x) * speedScale;
         double manualTurn = applyDeadband(gamepad1.right_stick_x) * speedScale;
+        double turnAssist = intake.turnPlease() ? shooter.getChassisTurnAssist() * AIM_ASSIST_SCALE : 0.0;
 
         follower.setTeleOpDrive(
                 driveY,
                 driveX,
-                -manualTurn,
+                -(manualTurn + turnAssist),
                 false,
                 Math.toRadians(0)
         );
