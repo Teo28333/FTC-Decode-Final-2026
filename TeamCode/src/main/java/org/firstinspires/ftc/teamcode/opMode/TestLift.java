@@ -21,10 +21,10 @@ public class TestLift extends OpMode {
     @Override
     public void loop() {
 
-        if (gamepad1.triangle) {
+        if (gamepad1.y) {
             left.setPower(1);
             right.setPower(1);
-        } else if (gamepad1.square) {
+        } else if (gamepad1.x) {
             left.setPower(-0.75);
             right.setPower(-0.75);
         } else {
