@@ -43,6 +43,7 @@ public class Intake {
     private boolean inSpikeWindow1 = false;
     private boolean inSpikeWindow2 = false;
     private boolean wasIntakeActive = false;
+    private boolean wasSpikeDetectionMode = false;
 
     private boolean activateIntake = false;
     private boolean activateAutonIntake = false;
@@ -82,9 +83,25 @@ public class Intake {
 
     public void update(double x, double y, boolean ready, boolean pointingCorrectly) {
         boolean isInZone = isInShootingZone(x, y);
+        boolean spikeDetectionMode = activateIntake || activateAutonIntake;
 
         pow1 = 0;
         pow2 = 0;
+
+        if (spikeDetectionMode && !wasSpikeDetectionMode) {
+            spiked1 = false;
+            spiked2 = false;
+            inSpikeWindow1 = false;
+            inSpikeWindow2 = false;
+            startupTimer.reset();
+            spikeTimer1.reset();
+            spikeTimer2.reset();
+            recoverTimer1.reset();
+            recoverTimer2.reset();
+            filteredCurrent = current;
+            filteredFinalBallCurrent = finalBallCurrent;
+        }
+        wasSpikeDetectionMode = spikeDetectionMode;
 
         if (activateAutonTransfer || (activateTransfer && isInZone) || activateOuttake) {
             spiked1 = false;
@@ -141,6 +158,7 @@ public class Intake {
 
         else {
             wasIntakeActive = false;
+            wasSpikeDetectionMode = false;
             if (gateFailSafe.seconds() > 1) {
                 closeGate();
             }
